@@ -1,0 +1,13 @@
+# MQTT_BROKER = "192.168.0.10"
+MQTT_BROKER = "0.0.0.0"
+MQTT_PORT = 1883
+MQTT_TOPIC = "zigbee2mqtt/#"
+MQTT_DEVICE_LIST_TOPIC = "zigbee2mqtt/bridge/devices"
+KAFKA_BROKER = ["kafka.inshasaki.com:30011", "kafka.inshasaki.com:30012", "kafka.inshasaki.com:30013"]
+KAFKA_TOPIC = "bom-qc-wo-machine-logs.bom.work_order_machine_button_init"
+KAFKA_TOPIC_PRODUCER = "qc-bom-work_order_machine_logs.bom.work_order_machine_logs"
+KAFKA_TOPIC_COMSUMER = "bom-qc-wo-machine-logs.bom.work_order_machine_logs_reset"
+# KAFKA_BROKER = ["prod-kafka01.inshasaki.com:9092", "prod-kafka02.inshasaki.com:9092", "prod-kafka03.inshasaki.com:9092"]
+# KAFKA_TOPIC = "bom-wo-machine-logs.bom.work_order_machine_button_init"
+# KAFKA_TOPIC_PRODUCER = "bom-work_order_machine_logs.bom.work_order_machine_logs"
+# KAFKA_TOPIC_COMSUMER = "bom-wo-machine-logs.bom.work_order_machine_logs_reset"
