@@ -32,22 +32,37 @@ class SQLiteDeviceLineData:
             print("🔴 Lỗi khi kiểm tra machine_code:", e)
             return False
 
-    def upsert_machine_data(self, machine_code, line1=None, line2=None):
-        """Nếu tồn tại thì update, không thì insert"""
+    # def upsert_machine_data(self, machine_code, line1=None, line2=None):
+    #     """Nếu tồn tại thì update, không thì insert"""
+    #     try:
+    #         machine_code = machine_code.lower()
+    #         line1 = line1 or "test1"
+    #         line2 = line2 or "test2"
+
+    #         self.cursor.execute("""
+    #             INSERT INTO device_line_data (machine_code, line1, line2)
+    #             VALUES (?, ?, ?)
+    #             ON CONFLICT(machine_code) DO UPDATE SET
+    #                 line1 = excluded.line1,
+    #                 line2 = excluded.line2
+    #         """, (machine_code, line1, line2))
+    #         self.conn.commit()
+    #         print(f"💾 Dữ liệu đã được ghi: {machine_code} | line1: {line1}, line2: {line2}")
+    #     except Exception as e:
+    #         print("🔴 Lỗi khi ghi hoặc cập nhật dữ liệu:", e)
+
+    def upsert_machine_data(self, machine_code, line2):
+        """Nếu tồn tại thì update line2, không thì insert"""
         try:
             machine_code = machine_code.lower()
-            line1 = line1 or "test1"
-            line2 = line2 or "test2"
-
             self.cursor.execute("""
-                INSERT INTO device_line_data (machine_code, line1, line2)
-                VALUES (?, ?, ?)
+                INSERT INTO device_line_data (machine_code, line2)
+                VALUES (?, ?)
                 ON CONFLICT(machine_code) DO UPDATE SET
-                    line1 = excluded.line1,
                     line2 = excluded.line2
-            """, (machine_code, line1, line2))
+            """, (machine_code, line2))
             self.conn.commit()
-            print(f"💾 Dữ liệu đã được ghi: {machine_code} | line1: {line1}, line2: {line2}")
+            print(f"💾 Dữ liệu đã được ghi: {machine_code} | line2: {line2}")
         except Exception as e:
             print("🔴 Lỗi khi ghi hoặc cập nhật dữ liệu:", e)
 

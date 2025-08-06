@@ -33,60 +33,75 @@ class mqtt2kafka:
             bootstrap_servers=KAFKA_BROKER,
             auto_offset_reset="latest",
             enable_auto_commit=True,
-            group_id="kafka-to-zigbee-bridge-test"
+            group_id="kafka-to-zigbee-bridge_test",
+            consumer_timeout_ms=100
         )
-
-        for message in consumer1:
-            try:
-                data = json.loads(message.value.decode("utf-8"))
-                print(f"📥 Nhận từ Kafka: {data}")  # Debug dữ liệu Kafka
-            except Exception as e:
-                print("🔴 Lỗi giải mã JSON từ thông điệp Kafka:", e)
-                continue
-
-            try:
-                machine_code = data.get("machine_code")
-                if not machine_code:
-                    print("⚠️ Thiếu machine_code")
+        while True:
+            for message in consumer1:
+                try:
+                    data = json.loads(message.value.decode("utf-8"))
+                    print(f"📥 Nhận từ Kafka: {data}")  # Debug dữ liệu Kafka
+                except Exception as e:
+                    print("🔴 Lỗi giải mã JSON từ thông điệp Kafka:", e)
                     continue
 
-                # update db button box
-                if self.db_handler.machine_code_exists(machine_code):
-                    print(f"⚠️ Machine {machine_code} đã có, sẽ cập nhật.")
-                    self.db_handler.upsert_machine_data(machine_code, line1=data["line1"], line2=data["line2"])
-                else:
-                    print(f"➕ Machine {machine_code} chưa có, ghi mới.")
-                    self.db_handler.upsert_machine_data(machine_code, line1=data["line1"], line2=data["line1"])
+                try:
+                    machine_code = data.get("machine_code")
+                    if not machine_code:
+                        print("⚠️ Thiếu machine_code")
+                        continue
 
-                device_id = self.s2l_deviceName.get(str(machine_code).lower())
-                print(f"📋 s2l_deviceName: {dict(self.s2l_deviceName)}")  # Debug ánh xạ
-                if not device_id:
-                    print(f"❌ Không tìm thấy thiết bị với địa chỉ ngắn {machine_code}")
-                    continue
+                    # update db button box
+                    # if self.db_handler.machine_code_exists(machine_code):
+                    #     print(f"⚠️ Machine {machine_code} đã có, sẽ cập nhật.")
+                    #     self.db_handler.upsert_machine_data(machine_code, line1=data["line1"], line2=data["line2"])
+                    # else:
+                    #     print(f"➕ Machine {machine_code} chưa có, ghi mới.")
+                    #     self.db_handler.upsert_machine_data(machine_code, line1=data["line1"], line2=data["line2"])
+                                    
+                    line2 = data["line2"]
 
-                print(f"✅ Kafka → Zigbee: {machine_code} ➝ {device_id}")
+                    if "-" in line2:
+                        if self.db_handler.machine_code_exists(machine_code):
+                            print(f"⚠️ Machine {machine_code} đã có, sẽ cập nhật line2.")
+                        else:
+                            print(f"➕ Machine {machine_code} chưa có, sẽ thêm mới line2.")
 
-                mqtt_topic = f"zigbee2mqtt/{device_id}/set"
-                attributes = [
-                    ("alarm", "alarm"),
-                    ("count_up", "countUp"),
-                    ("count_down", "countDown"),
-                    ("line1", "line1"),
-                    ("line2", "line2")
-                ]
+                        # Chỉ ghi DB khi line2 hợp lệ
+                        self.db_handler.upsert_machine_data(machine_code, line2=data["line2"])
+                    else:
+                        print(f"⚠️ line2 không hợp lệ, dùng mặc định: {line2}")
 
-                for kafka_key, zigbee_key in attributes:
-                    if kafka_key in data:
-                        value = data[kafka_key]
-                        payload = {zigbee_key: value}
-                        print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
-                        mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
-                        time.sleep(0.1)
 
-            except Exception as e:
-                print(f"🔴 Lỗi xử lý thông điệp Kafka: {e}")
-                import traceback
-                traceback.print_exc()  # In stack trace để debug
+                    device_id = self.s2l_deviceName.get(str(machine_code).lower())
+                    print(f"📋 s2l_deviceName: {dict(self.s2l_deviceName)}")  # Debug ánh xạ
+                    if not device_id:
+                        print(f"❌ Không tìm thấy thiết bị với địa chỉ ngắn {machine_code}")
+                        continue
+
+                    print(f"✅ Kafka → Zigbee: {machine_code} ➝ {device_id}")
+
+                    mqtt_topic = f"zigbee2mqtt/{device_id}/set"
+                    attributes = [
+                        ("alarm", "alarm"),
+                        ("count_up", "countUp"),
+                        ("count_down", "countDown"),
+                        ("line1", "line1"),
+                        ("line2", "line2")
+                    ]
+
+                    for kafka_key, zigbee_key in attributes:
+                        if kafka_key in data:
+                            value = data[kafka_key]
+                            payload = {zigbee_key: value}
+                            print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
+                            mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
+                            time.sleep(0.1)
+
+                except Exception as e:
+                    print(f"🔴 Lỗi xử lý thông điệp Kafka: {e}")
+                    import traceback
+                    traceback.print_exc()  # In stack trace để debug
 
     def process_kafka_v2(self):
         mqtt_client = mqtt_basic(broker=MQTT_BROKER, port=MQTT_PORT)
@@ -98,49 +113,51 @@ class mqtt2kafka:
             bootstrap_servers=KAFKA_BROKER,
             auto_offset_reset="latest",
             enable_auto_commit=True,
-            group_id="kafka-to-zigbee-bridge_"
+            group_id="kafka-to-zigbee-bridge",
+            consumer_timeout_ms=100
         )
 
-        for message in consumer2:
-            try:
-                data = json.loads(message.value.decode("utf-8"))
-            except Exception as e:
-                print("🔴 Lỗi giải mã JSON từ thông điệp Kafka:", e)
-                continue
-
-            try:
-                machine_codes = data.get("machine_code")
-                if not machine_codes:
-                    print("⚠️ Thiếu machine_code")
+        while True:
+            for message in consumer2:
+                try:
+                    data = json.loads(message.value.decode("utf-8"))
+                except Exception as e:
+                    print("🔴 Lỗi giải mã JSON từ thông điệp Kafka:", e)
                     continue
-                for machine_code in machine_codes:
-                    code = machine_code["code"]
-                    value = machine_code["value"]
 
-                    device_id = self.s2l_deviceName.get(str(code).lower(), code)
-                    if not device_id:
-                        print(f"❌ Không tìm thấy thiết bị với địa chỉ ngắn {code}")
+                try:
+                    machine_codes = data.get("machine_code")
+                    if not machine_codes:
+                        print("⚠️ Thiếu machine_code")
                         continue
+                    for machine_code in machine_codes:
+                        code = machine_code["code"]
+                        value = machine_code["value"]
 
-                    print(f"✅ Kafka → Zigbee: {code} ➝ {device_id}")
+                        device_id = self.s2l_deviceName.get(str(code).lower(), code)
+                        if not device_id:
+                            print(f"❌ Không tìm thấy thiết bị với địa chỉ ngắn {code}")
+                            continue
 
-                    mqtt_topic = f"zigbee2mqtt/{device_id}/set"
+                        print(f"✅ Kafka → Zigbee: {code} ➝ {device_id}")
 
-                    payload = {"countUp": value}
-                    print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
-                    mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
+                        mqtt_topic = f"zigbee2mqtt/{device_id}/set"
 
-                    # attributes = [("count_up", "countUp")]
+                        payload = {"countUp": value}
+                        print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
+                        mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
 
-                    # for kafka_key, zigbee_key in attributes:
-                    #     if kafka_key in data:
-                    #         payload = {zigbee_key: data[kafka_key]}
-                    #         print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
-                    #         mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
-                    #         time.sleep(0.05)
+                        # attributes = [("count_up", "countUp")]
 
-            except Exception as e:
-                print("🔴 Lỗi xử lý thông điệp Kafka:", e)
+                        # for kafka_key, zigbee_key in attributes:
+                        #     if kafka_key in data:
+                        #         payload = {zigbee_key: data[kafka_key]}
+                        #         print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
+                        #         mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
+                        #         time.sleep(0.05)
+
+                except Exception as e:
+                    print("🔴 Lỗi xử lý thông điệp Kafka:", e)
 
     def run(self):
         self.mqtt_enddevice.connect()

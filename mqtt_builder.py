@@ -66,31 +66,17 @@ class mqtt_enddevice:
 
                     print(f"📲 Thiết bị mới: {short} ({name})")
 
-                    # # 🔁 Lấy dữ liệu từ DB (nếu có)
-                    # device_data = db_handler.get_device_data(short)
-                    # if device_data:
-                    #     line1 = device_data.get("line1")
-                    #     line2 = device_data.get("line2")
-                    # else:
-                    #     line1 = "init1"
-                    #     line2 = "init2"
-                        # Ghi dữ liệu mặc định vào DB
-                        # self.db_handler.upsert_machine_data(short, line1, line2)
-                        # print(f"🆕 DB chưa có, đã khởi tạo dữ liệu mặc định cho {short}: {line1}, {line2}")
+                    # 🔁 Lấy dữ liệu từ DB (nếu có)
+                    device_data = db_handler.get_device_data(short)
+                    if device_data:
+                        line2 = device_data.get("line2")
+                        mqtt_topic = f"zigbee2mqtt/{name}/set"
 
-                    # mqtt_topic = f"zigbee2mqtt/{name}/set"
-
-                    # # Gửi line1
-                    # payload_line1 = {"line1": line1}
-                    # print(f"📤 Gửi đến {mqtt_topic}: {payload_line1}")
-                    # self.client.publish(mqtt_topic, json.dumps(payload_line1))
-                    # time.sleep(0.05)
-
-                    # # Gửi line2
-                    # payload_line2 = {"line2": line2}
-                    # print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
-                    # self.client.publish(mqtt_topic, json.dumps(payload_line2))
-                    # time.sleep(0.05)
+                        # Gửi line2
+                        payload_line2 = {"line2": line2}
+                        print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
+                        self.client.publish(mqtt_topic, json.dumps(payload_line2))
+                        time.sleep(0.05)
 
             print("📋 Bảng ánh xạ short ➝ name:")
             print(json.dumps(dict(s2l_deviceName), indent=2))
