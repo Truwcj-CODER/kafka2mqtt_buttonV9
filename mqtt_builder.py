@@ -3,7 +3,7 @@ import json
 import os
 import time
 from kafka import KafkaProducer
-from evn import MQTT_BROKER, MQTT_PORT, MQTT_TOPIC, MQTT_DEVICE_LIST_TOPIC, KAFKA_BROKER, KAFKA_TOPIC_PRODUCER
+from evn import MQTT_BROKER, MQTT_PORT, MQTT_TOPIC, MQTT_DEVICE_LIST_TOPIC, KAFKA_BROKER, KAFKA_TOPIC_PRODUCER,MQTT_NEW_DEVICE_TOPIC
 from db import SQLiteDeviceLineData
 
 class mqtt_basic:
@@ -24,6 +24,89 @@ class mqtt_basic:
         self.client.loop_stop()
         self.client.disconnect()
 
+
+class mqtt_newdevice:
+    def __init__(self, db_path, l2s_deviceName, s2l_deviceName, broker=MQTT_BROKER, port=MQTT_PORT, topic=MQTT_NEW_DEVICE_TOPIC):
+        self.broker = broker
+        self.port = port
+        self.topic = topic
+        self.l2s_deviceName = l2s_deviceName
+        self.s2l_deviceName = s2l_deviceName
+        self.db_path = db_path
+        
+        self.client = mqtt.Client(userdata={'l2s': self.l2s_deviceName, 's2l': self.s2l_deviceName})
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
+
+    def connect(self):
+        self.client.connect(self.broker, self.port, 60)
+        self.client.loop_start()
+
+    def on_connect(self, client, userdata, flags, rc):
+        print(f"✅ Connected to MQTT broker {self.broker}:{self.port} | topic: {self.topic}")
+        self.client.subscribe(self.topic)
+        
+
+    # def publish_with_retry(self, topic, payload, retries=2, delay=0.1):
+    #     for attempt in range(retries):
+    #         try:
+    #             self.client.publish(topic, json.dumps(payload))
+    #             print(f"📤 Đã gửi đến {topic}: {payload}")
+    #             return True
+    #         except Exception as e:
+    #             print(f"🔴 Lỗi gửi đến {topic}, thử lại {attempt + 1}/{retries}: {e}")
+    #             time.sleep(delay)
+    #     print(f"❌ Không thể gửi đến {topic} sau {retries} lần thử.")
+    #     return False
+
+    def on_message(self, client, userdata, msg):
+        l2s_deviceName = userdata['l2s']
+        s2l_deviceName = userdata['s2l']
+        db_handler = SQLiteDeviceLineData(db_path=self.db_path)
+           
+        try:
+    
+            dev = json.loads(msg.payload.decode())
+            print("📥 Nhận thiết bị mới từ MQTT:", dev)
+            
+            data = dev["data"]
+            long_addr = data.get("ieee_address")
+            short = l2s_deviceName[long_addr]
+
+            print(f"📲 Thiết bị mới: {short} ({long_addr})")
+            time.sleep(0.05)
+
+
+            # # 🔁 Lấy dữ liệu line2 từ DB (nếu có)
+            # device_data = db_handler.get_device_data(short)
+            # if device_data:
+            #     line2 = device_data.get("line2")
+            #     mqtt_topic = f"zigbee2mqtt/{long_addr}/set"
+            #     payload_line2 = {"line2": line2}
+
+            #     print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
+            #     print("[DEBUG] line2 =", line2)
+
+            #     # ✅ Gửi có retry
+            #     self.publish_with_retry(mqtt_topic, payload_line2)
+
+            # db_handler.close()
+
+            # 🔁 Lấy dữ liệu line2 từ DB (nếu có)
+            device_data = db_handler.get_device_data(short)
+            if device_data:
+                line2 = device_data.get("line2")
+                mqtt_topic = f"zigbee2mqtt/{long_addr}/set"
+                
+                # Gửi line2
+                payload_line2 = {"line2": line2}
+                print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
+                print("[DEBUG] line2 =", line2)
+                self.client.publish(mqtt_topic, json.dumps(payload_line2))
+            db_handler.close()
+
+        except Exception as e:
+            print("🔴 Lỗi xử lý message từ MQTT:", e)
 
 class mqtt_enddevice:
     def __init__(self, db_path, l2s_deviceName, s2l_deviceName, broker=MQTT_BROKER, port=MQTT_PORT, topic=MQTT_DEVICE_LIST_TOPIC):
@@ -66,21 +149,21 @@ class mqtt_enddevice:
 
                     print(f"📲 Thiết bị mới: {short} ({name})")
 
-                    # 🔁 Lấy dữ liệu từ DB (nếu có)
-                    device_data = db_handler.get_device_data(short)
-                    if device_data:
-                        line2 = device_data.get("line2")
-                        mqtt_topic = f"zigbee2mqtt/{name}/set"
+            #         # 🔁 Lấy dữ liệu từ DB (nếu có)
+            #         device_data = db_handler.get_device_data(short)
+            #         if device_data:
+            #             line2 = device_data.get("line2")
+            #             mqtt_topic = f"zigbee2mqtt/{name}/set"
 
-                        # Gửi line2
-                        payload_line2 = {"line2": line2}
-                        print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
-                        self.client.publish(mqtt_topic, json.dumps(payload_line2))
-                        time.sleep(0.05)
+            #             # Gửi line2
+            #             payload_line2 = {"line2": line2}
+            #             print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
+            #             self.client.publish(mqtt_topic, json.dumps(payload_line2))
+            #             time.sleep(0.05)
 
-            print("📋 Bảng ánh xạ short ➝ name:")
-            print(json.dumps(dict(s2l_deviceName), indent=2))
-            db_handler.close()
+            # print("📋 Bảng ánh xạ short ➝ name:")
+            # print(json.dumps(dict(s2l_deviceName), indent=2))
+            # db_handler.close()
 
         except Exception as e:
             print("🔴 Lỗi xử lý message từ MQTT:", e)
@@ -164,7 +247,7 @@ class mqtt_button:
             "manufactor_id": 1,
             "machine_code": device_id,
             "status": status,
-            "created_at": int(time.time()),
+            "created_at": int(time.time()*1000),
             "__deleted": False
         }
         self.kafka_producer.send(KAFKA_TOPIC_PRODUCER, value=kafka_message, key=str(self.message_id).encode("utf-8"))

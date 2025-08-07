@@ -7,7 +7,7 @@ from kafka import KafkaConsumer
 from multiprocessing import Process, Manager
 
 from evn import MQTT_BROKER, MQTT_PORT, KAFKA_BROKER, KAFKA_TOPIC, KAFKA_TOPIC_COMSUMER
-from mqtt_builder import mqtt_enddevice, mqtt_button, mqtt_basic
+from mqtt_builder import mqtt_enddevice, mqtt_button, mqtt_basic, mqtt_newdevice
 
 from db import SQLiteDeviceLineData
 
@@ -20,6 +20,7 @@ class mqtt2kafka:
         self.db_handler = SQLiteDeviceLineData(self.db_path)
 
         self.mqtt_enddevice = mqtt_enddevice(self.db_path, self.l2s_deviceName, self.s2l_deviceName)
+        self.mqtt_newdevice = mqtt_newdevice(self.db_path, self.l2s_deviceName, self.s2l_deviceName)
         self.mqtt_button = mqtt_button(self.l2s_deviceName, self.s2l_deviceName)
         
 
@@ -162,6 +163,7 @@ class mqtt2kafka:
     def run(self):
         self.mqtt_enddevice.connect()
         self.mqtt_button.connect()
+        self.mqtt_newdevice.connect()
 
         process1 = Process(target=self.process_kafka_v1)
         process1.start()
@@ -176,6 +178,7 @@ class mqtt2kafka:
 
         self.mqtt_enddevice.client.loop_stop()
         self.mqtt_button.client.loop_stop()
+        self.mqtt_newdevice.loop_stop()
 
 if __name__ == "__main__":
     mqtt = mqtt2kafka()
