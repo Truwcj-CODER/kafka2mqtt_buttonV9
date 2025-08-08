@@ -208,6 +208,7 @@ class mqtt_button:
 
             curr_up = int(data.get("countUp", -1))
             curr_down = int(data.get("countDown", -1))
+            curr_line2 = data.get("line2", "")
 
             # Nếu không có dữ liệu countUp/countDown thì bỏ qua
             if curr_up == -1 or curr_down == -1:
@@ -218,16 +219,19 @@ class mqtt_button:
             prev = self.prev_counts.get(device_id, {"countUp": curr_up, "countDown": curr_down})
             prev_up = prev["countUp"]
             prev_down = prev["countDown"]
+            prev_line2 = prev.get("line2", "")
 
-            if curr_up > prev_up:
-                self.send_kafka(l2s_deviceName[device_id], 1)  # UP
-            elif curr_down > prev_down:
-                self.send_kafka(l2s_deviceName[device_id], 0)  # DOWN
-            else:
-                print("🔁 No change countUp/countDown")
+            if curr_line2 and prev_line2 == curr_line2:
 
-            # Cập nhật lại trạng thái mới
-            self.prev_counts[device_id] = {"countUp": curr_up, "countDown": curr_down}
+                if curr_up > prev_up:
+                    self.send_kafka(l2s_deviceName[device_id], 1)  # UP
+                elif curr_down > prev_down:
+                    self.send_kafka(l2s_deviceName[device_id], 0)  # DOWN
+                else:
+                    print("🔁 No change countUp/countDown")
+
+                # Cập nhật lại trạng thái mới
+                self.prev_counts[device_id] = {"countUp": curr_up, "countDown": curr_down}
 
         except Exception as e:
             print("🔴 Error on button press:", e)

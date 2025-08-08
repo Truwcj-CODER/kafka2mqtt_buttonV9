@@ -35,7 +35,7 @@ class mqtt2kafka:
             auto_offset_reset="latest",
             enable_auto_commit=True,
             group_id="kafka-to-zigbee-bridge_test",
-            consumer_timeout_ms=100
+            # consumer_timeout_ms=100
         )
         while True:
             for message in consumer1:
@@ -115,7 +115,7 @@ class mqtt2kafka:
             auto_offset_reset="latest",
             enable_auto_commit=True,
             group_id="kafka-to-zigbee-bridge",
-            consumer_timeout_ms=100
+            # consumer_timeout_ms=100
         )
 
         while True:
