@@ -46,19 +46,6 @@ class mqtt_newdevice:
         print(f"✅ Connected to MQTT broker {self.broker}:{self.port} | topic: {self.topic}")
         self.client.subscribe(self.topic)
         
-
-    # def publish_with_retry(self, topic, payload, retries=2, delay=0.1):
-    #     for attempt in range(retries):
-    #         try:
-    #             self.client.publish(topic, json.dumps(payload))
-    #             print(f"📤 Đã gửi đến {topic}: {payload}")
-    #             return True
-    #         except Exception as e:
-    #             print(f"🔴 Lỗi gửi đến {topic}, thử lại {attempt + 1}/{retries}: {e}")
-    #             time.sleep(delay)
-    #     print(f"❌ Không thể gửi đến {topic} sau {retries} lần thử.")
-    #     return False
-
     def on_message(self, client, userdata, msg):
         l2s_deviceName = userdata['l2s']
         s2l_deviceName = userdata['s2l']
@@ -75,22 +62,6 @@ class mqtt_newdevice:
 
             print(f"📲 Thiết bị mới: {short} ({long_addr})")
             time.sleep(0.05)
-
-
-            # # 🔁 Lấy dữ liệu line2 từ DB (nếu có)
-            # device_data = db_handler.get_device_data(short)
-            # if device_data:
-            #     line2 = device_data.get("line2")
-            #     mqtt_topic = f"zigbee2mqtt/{long_addr}/set"
-            #     payload_line2 = {"line2": line2}
-
-            #     print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
-            #     print("[DEBUG] line2 =", line2)
-
-            #     # ✅ Gửi có retry
-            #     self.publish_with_retry(mqtt_topic, payload_line2)
-
-            # db_handler.close()
 
             # 🔁 Lấy dữ liệu line2 từ DB (nếu có)
             device_data = db_handler.get_device_data(short)
@@ -181,6 +152,8 @@ class mqtt_button:
         self.kafka_producer = self.init_kafka_producer()
         self.message_id = 0
         self.prev_counts = {} 
+        self.skip_once = {}
+        self.stable_counts = {} 
          
         self.client = mqtt.Client(userdata={'l2s': self.l2s_deviceName, 's2l': self.s2l_deviceName, 'kafka_message': self.kafka_message,'kafka_producer': self.kafka_producer})
         self.client.on_connect = self.on_connect
@@ -197,6 +170,15 @@ class mqtt_button:
         # client.subscribe(self.topic)
         self.client.subscribe(self.topic)
 
+    @staticmethod
+    def safe_int(value):
+        if value is None or value == "":
+            return 0
+        try:
+            return int(value)
+        except Exception:
+            return 0
+
     def on_message(self, client, userdata, msg):
         l2s_deviceName = userdata['l2s']
         kafka_message = userdata['kafka_message']
@@ -211,13 +193,13 @@ class mqtt_button:
 
             short_addr = l2s_deviceName[device_id]
 
-            curr_up = int(data.get("countUp", -1))
-            curr_down = int(data.get("countDown", -1))
+            
+            curr_up = self.safe_int(data.get("countUp"))
+            curr_down = self.safe_int(data.get("countDown"))
             curr_line2 = data.get("line2","")
 
-            # Nếu không có dữ liệu countUp/countDown thì bỏ qua
-            if curr_up == -1 or curr_down == -1:
-                print("⚠️ Thiếu countUp hoặc countDown")
+            if curr_up is None or curr_down is None:
+                print("⚠️ countUp hoặc countDown rỗng hoặc không hợp lệ, bỏ qua")
                 return
 
             # Lấy dữ liệu cũ (nếu có)
@@ -225,50 +207,45 @@ class mqtt_button:
             prev_up = prev["countUp"]
             prev_down = prev["countDown"]
             prev_line2 = prev.get("line2", "")
-            print (f"🔍 line2={prev_line2}")
 
-            kafka_line2 = kafka_message.get(short_addr, {}).get("line2", "")
-            if curr_line2 == kafka_line2:
-                kafka_countUp = kafka_message.get(short_addr, {}).get("countUp", -1)
-                kafka_countDown = kafka_message.get(short_addr, {}).get("countDown", -1)
-                if curr_up == kafka_countUp:
-                    print("Skip sending Kafka message: countUp unchanged with new line2 from kafka")
+            kafka_raw = kafka_message[short_addr]
+            if not kafka_raw:
+                return
+        
+
+            kafka_line2 = kafka_raw["data"]["line2"]
+            kafka_countUp = self.safe_int(kafka_raw["data"]["count_up"])
+            kafka_countDown = self.safe_int(kafka_raw["data"]["count_down"])
+
+            if not kafka_raw["load_all"]:
+                if kafka_line2 == curr_line2 and kafka_countUp == curr_up and kafka_countDown == curr_down:
+                    kafka_raw["load_all"] = True
+                    print(f"✅ Data Update Full {device_id}")
+                    # Cập nhật lại trạng thái mới
+                    self.prev_counts[device_id] = {"countUp": curr_up, "countDown": curr_down, "line2": curr_line2}
+                    print(f"📊 Updated counts for {device_id}: {self.prev_counts}")
+
+                    kafka_message[short_addr] = kafka_raw  # Cập nhật lại dữ liệu đã tải đầy đủ
+
                     return
-                elif prev_line2 == curr_line2:
-                    if curr_up == prev_up and curr_down == prev_down:
-                        print("Skip sending Kafka message: countUp/countDown unchanged with new line2 from kafka")
-                        return
-    
+
+                                                                                                                                            
+                else:
+                    print(f"⏳ Chưa đủ dữ liệu cho {device_id}, chờ thêm...")
+                    return
+                
+            if curr_line2 == prev_line2 :
+                if curr_up > prev_up:                                                                                                                                 
+                    self.send_kafka(l2s_deviceName[device_id], 1)  # UP
+                elif curr_down > prev_down:
+                    self.send_kafka(l2s_deviceName[device_id], 0)  # DOWN
             else:
-                # Nếu line2 khác, gửi line2 mới
-                mqtt_topic = f"zigbee2mqtt/{device_id}/set"
-                payload_line2 = {"line2": curr_line2}
-                print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
-                self.client.publish(mqtt_topic, json.dumps(payload_line2))
-                time.sleep(0.1)
-                
-              
-                
-
-
-            # if prev_line2 == curr_line2:
-                # if curr_up != prev_up or curr_down != prev_down:
-                #     print(f"🔁 Cập nhật countUp/countDown cho {device_id}: UP={curr_up}, DOWN={curr_down}")
-                #     self.send_kafka(l2s_deviceName[device_id], 1 if curr_up > prev_up else 0)
-                # else:
-                #     print(f"🔁 Không thay đổi countUp/countDown cho {device_id}: UP={curr_up}, DOWN={curr_down}")
-
-                                                                                                                                                                       
-                # if curr_up > prev_up:                                                                                                                                 
-                #     self.send_kafka(l2s_deviceName[device_id], 1)  # UP
-                # elif curr_down > prev_down:
-                #     self.send_kafka(l2s_deviceName[device_id], 0)  # DOWN
-                # else:
-                #     print("🔁 No change countUp/countDown")
+                print("🔁 No change countUp/countDown")
 
             # Cập nhật lại trạng thái mới
             self.prev_counts[device_id] = {"countUp": curr_up, "countDown": curr_down, "line2": curr_line2}
-            print(f"📊 Updated counts for {device_id}: {self.prev_counts}")
+            # print(f"📊 Updated counts for {device_id}: {self.prev_counts}")
+                
 
         except Exception as e:
             print("🔴 Error on button press:", e)

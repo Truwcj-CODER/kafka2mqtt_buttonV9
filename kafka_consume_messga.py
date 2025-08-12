@@ -35,8 +35,7 @@ class mqtt2kafka:
             bootstrap_servers=KAFKA_BROKER,
             auto_offset_reset="latest",
             enable_auto_commit=True,
-            group_id="kafka-to-zigbee-bridgev19",
-            # consumer_timeout_ms=100
+            group_id="kafka-to-zigbee-bridge",
         )
         while True:
             for message in consumer1:
@@ -52,16 +51,10 @@ class mqtt2kafka:
                     if not machine_code:
                         print("⚠️ Thiếu machine_code")
                         continue
-                    self.kafka_message[machine_code] = data
 
-                    # update db button box
-                    # if self.db_handler.machine_code_exists(machine_code):
-                    #     print(f"⚠️ Machine {machine_code} đã có, sẽ cập nhật.")
-                    #     self.db_handler.upsert_machine_data(machine_code, line1=data["line1"], line2=data["line2"])
-                    # else:
-                    #     print(f"➕ Machine {machine_code} chưa có, ghi mới.")
-                    #     self.db_handler.upsert_machine_data(machine_code, line1=data["line1"], line2=data["line2"])
-                                    
+                    self.kafka_message[machine_code] = {"data":data, "load_all": False}
+                    
+                    # Lưu dữ liệu line2 vào DB
                     line2 = data["line2"]
 
                     if "-" in line2:
@@ -90,31 +83,16 @@ class mqtt2kafka:
                         ("alarm", "alarm"),
                         ("count_up", "countUp"),
                         ("count_down", "countDown"),
-                        ("line1", "line1")
-                        
+                        ("line1", "line1")        
                     ]
 
                     for kafka_key, zigbee_key in attributes:
                         if kafka_key in data:
                             value = data[kafka_key]
                             payload = {zigbee_key: value}
-                            print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
+                            print(f"📤 Send to {mqtt_topic}: {json.dumps(payload)}")
                             mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
                             time.sleep(0.1)
-
-                    # payload = {"line2": data["line2"],
-                    #            "alarm": data["alarm"],
-                    #            "countUp": data["count_up"],
-                    #            "countDown": data["count_down"],
-                    #            "line1": data["line1"]}
-                    # print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
-                    # mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
-                    # print(json.dumps(payload))
-
-                    # time.sleep(0.1)  
-
-
-
                 except Exception as e:
                     print(f"🔴 Lỗi xử lý thông điệp Kafka: {e}")
                     import traceback
@@ -130,8 +108,7 @@ class mqtt2kafka:
             bootstrap_servers=KAFKA_BROKER,
             auto_offset_reset="latest",
             enable_auto_commit=True,
-            group_id="kafka-to-zigbee-bridgev19",
-            # consumer_timeout_ms=100
+            group_id="kafka-to-zigbee-bridge",
         )
 
         while True:
@@ -161,17 +138,9 @@ class mqtt2kafka:
                         mqtt_topic = f"zigbee2mqtt/{device_id}/set"
 
                         payload = {"countUp": value}
-                        print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
+                        print(f"📤 Send to {mqtt_topic}: {json.dumps(payload)}")
                         mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
-
-                        # attributes = [("count_up", "countUp")]
-
-                        # for kafka_key, zigbee_key in attributes:
-                        #     if kafka_key in data:
-                        #         payload = {zigbee_key: data[kafka_key]}
-                        #         print(f"📤 Gửi đến {mqtt_topic}: {json.dumps(payload)}")
-                        #         mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
-                        #         time.sleep(0.05)
+                        time.sleep(0.1)
 
                 except Exception as e:
                     print("🔴 Lỗi xử lý thông điệp Kafka:", e)
@@ -183,11 +152,11 @@ class mqtt2kafka:
 
         process1 = Process(target=self.process_kafka_v1)
         process1.start()
-        print(f"🔁 Lắng nghe topic Kafka `{KAFKA_TOPIC}`...")
+        print(f"🔁 Listening to topic Kafka `{KAFKA_TOPIC}`...")
 
         process2 = Process(target=self.process_kafka_v2)
         process2.start()
-        print(f"🔁 Lắng nghe topic Kafka `{KAFKA_TOPIC_COMSUMER}`...")
+        print(f"🔁 Listening to topic Kafka `{KAFKA_TOPIC_COMSUMER}`...")
 
         process1.join()
         process2.join()
