@@ -119,26 +119,10 @@ class mqtt_enddevice:
                     l2s_deviceName[name] = short
                     s2l_deviceName[short] = name
 
-                    print(f"📲 Thiết bị mới: {short} ({name})")
-
-            #         # 🔁 Lấy dữ liệu từ DB (nếu có)
-            #         device_data = db_handler.get_device_data(short)
-            #         if device_data:
-            #             line2 = device_data.get("line2")
-            #             mqtt_topic = f"zigbee2mqtt/{name}/set"
-
-            #             # Gửi line2
-            #             payload_line2 = {"line2": line2}
-            #             print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
-            #             self.client.publish(mqtt_topic, json.dumps(payload_line2))
-            #             time.sleep(0.05)
-
-            # print("📋 Bảng ánh xạ short ➝ name:")
-            # print(json.dumps(dict(s2l_deviceName), indent=2))
-            # db_handler.close()
+                    print(f"📲 New endevice: {short} ({name})")
 
         except Exception as e:
-            print("🔴 Lỗi xử lý message từ MQTT:", e)
+            print("🔴 Erorr processing message từ MQTT:", e)
 
 
 class mqtt_button:
@@ -152,8 +136,6 @@ class mqtt_button:
         self.kafka_producer = self.init_kafka_producer()
         self.message_id = 0
         self.prev_counts = {} 
-        self.skip_once = {}
-        self.stable_counts = {} 
          
         self.client = mqtt.Client(userdata={'l2s': self.l2s_deviceName, 's2l': self.s2l_deviceName, 'kafka_message': self.kafka_message,'kafka_producer': self.kafka_producer})
         self.client.on_connect = self.on_connect
@@ -199,7 +181,7 @@ class mqtt_button:
             curr_line2 = data.get("line2","")
 
             if curr_up is None or curr_down is None:
-                print("⚠️ countUp hoặc countDown rỗng hoặc không hợp lệ, bỏ qua")
+                print("⚠️ countUp or countDown empty or invalid, skip")
                 return
 
             # Lấy dữ liệu cũ (nếu có)
@@ -211,8 +193,7 @@ class mqtt_button:
             kafka_raw = kafka_message[short_addr]
             if not kafka_raw:
                 return
-        
-
+            
             kafka_line2 = kafka_raw["data"]["line2"]
             kafka_countUp = self.safe_int(kafka_raw["data"]["count_up"])
             kafka_countDown = self.safe_int(kafka_raw["data"]["count_down"])
@@ -227,17 +208,17 @@ class mqtt_button:
 
                     kafka_message[short_addr] = kafka_raw  # Cập nhật lại dữ liệu đã tải đầy đủ
 
-                    return
-
-                                                                                                                                            
+                    return                                                                                                             
                 else:
                     print(f"⏳ Chưa đủ dữ liệu cho {device_id}, chờ thêm...")
                     return
                 
             if curr_line2 == prev_line2 :
-                if curr_up > prev_up:                                                                                                                                 
+                if curr_up > prev_up:
+                    print(f"⬆️   UP: {prev_up} → {curr_up}")                                                                                                                                 
                     self.send_kafka(l2s_deviceName[device_id], 1)  # UP
                 elif curr_down > prev_down:
+                    print(f"⬆️   DOWN: {prev_down} → {curr_down}")
                     self.send_kafka(l2s_deviceName[device_id], 0)  # DOWN
             else:
                 print("🔁 No change countUp/countDown")

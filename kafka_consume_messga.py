@@ -35,7 +35,7 @@ class mqtt2kafka:
             bootstrap_servers=KAFKA_BROKER,
             auto_offset_reset="latest",
             enable_auto_commit=True,
-            group_id="kafka-to-zigbee-bridge",
+            group_id="kafka-to-zigbee-bridge1",
         )
         while True:
             for message in consumer1:
@@ -59,9 +59,9 @@ class mqtt2kafka:
 
                     if "-" in line2:
                         if self.db_handler.machine_code_exists(machine_code):
-                            print(f"⚠️ Machine {machine_code} đã có, sẽ cập nhật line2.")
+                            print(f"⚠️ ID: {machine_code} đã có, sẽ cập nhật line2.")
                         else:
-                            print(f"➕ Machine {machine_code} chưa có, sẽ thêm mới line2.")
+                            print(f"➕ ID: {machine_code} chưa có, sẽ thêm mới line2.")
 
                         # Chỉ ghi DB khi line2 hợp lệ
                         self.db_handler.upsert_machine_data(machine_code, line2=data["line2"])
