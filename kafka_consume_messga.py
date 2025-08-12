@@ -59,9 +59,9 @@ class mqtt2kafka:
 
                     if "-" in line2:
                         if self.db_handler.machine_code_exists(machine_code):
-                            print(f"⚠️ ID: {machine_code} đã có, sẽ cập nhật line2.")
+                            print(f"⚠️ ID: {machine_code} đã có, sẽ cập nhật.")
                         else:
-                            print(f"➕ ID: {machine_code} chưa có, sẽ thêm mới line2.")
+                            print(f"➕ ID: {machine_code} chưa có, sẽ thêm mới.")
 
                         # Chỉ ghi DB khi line2 hợp lệ
                         self.db_handler.upsert_machine_data(machine_code, line2=data["line2"])
