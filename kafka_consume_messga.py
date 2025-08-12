@@ -35,7 +35,7 @@ class mqtt2kafka:
             bootstrap_servers=KAFKA_BROKER,
             auto_offset_reset="latest",
             enable_auto_commit=True,
-            group_id="kafka-to-zigbee-bridge1",
+            group_id="kafka-to-zigbee-bridge",
         )
         while True:
             for message in consumer1:
