@@ -57,6 +57,10 @@ class mqtt2kafka:
                     # Lưu dữ liệu line2 vào DB
                     line2 = data["line2"]
 
+                    if len(line2) > 21:
+                        print(f"⚠️ line2 dài {len(line2)} ký tự vượt ngưỡng, bỏ qua: {line2}")
+                        continue
+
                     if "-" in line2:
                         if self.db_handler.machine_code_exists(machine_code):
                             print(f"⚠️ ID: {machine_code} đã có, sẽ cập nhật.")
@@ -72,7 +76,7 @@ class mqtt2kafka:
                     device_id = self.s2l_deviceName.get(str(machine_code).lower())
                     print(f"📋 s2l_deviceName: {dict(self.s2l_deviceName)}")  # Debug ánh xạ
                     if not device_id:
-                        print(f"❌ Không tìm thấy thiết bị với địa chỉ ngắn {machine_code}")
+                        print(f"❌ Device with short address not found {machine_code}")
                         continue
 
                     print(f"✅ Kafka → Zigbee: {machine_code} ➝ {device_id}")
@@ -92,7 +96,7 @@ class mqtt2kafka:
                             payload = {zigbee_key: value}
                             print(f"📤 Send to {mqtt_topic}: {json.dumps(payload)}")
                             mqtt_client.client.publish(mqtt_topic, json.dumps(payload))
-                            time.sleep(0.1)
+                            # time.sleep(0.1)
                 except Exception as e:
                     print(f"🔴 Lỗi xử lý thông điệp Kafka: {e}")
                     import traceback

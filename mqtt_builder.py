@@ -73,7 +73,6 @@ class mqtt_newdevice:
                 # Gửi line2
                 payload_line2 = {"line2": line2}
                 print(f"📤 Gửi đến {mqtt_topic}: {payload_line2}")
-                print("[DEBUG] line2 =", line2)
                 self.client.publish(mqtt_topic, json.dumps(payload_line2))
             db_handler.close()
 
@@ -167,7 +166,7 @@ class mqtt_button:
         try:
             data = json.loads(msg.payload.decode())
             device_id = msg.topic.split("/")[-1]
-
+            
             if device_id not in l2s_deviceName:
                 return
 
@@ -220,8 +219,8 @@ class mqtt_button:
                 elif curr_down > prev_down:
                     print(f"⬆️   DOWN: {prev_down} → {curr_down}")
                     self.send_kafka(l2s_deviceName[device_id], 0)  # DOWN
-            else:
-                print("🔁 No change countUp/countDown")
+                else:
+                    print("🔁 No change countUp/countDown")
 
             # Cập nhật lại trạng thái mới
             self.prev_counts[device_id] = {"countUp": curr_up, "countDown": curr_down, "line2": curr_line2}
