@@ -58,8 +58,9 @@ class mqtt2kafka:
                     line2 = data["line2"]
 
                     if len(line2) > 21:
-                        print(f"⚠️ line2 dài {len(line2)} ký tự vượt quá ngưỡng(>21), bỏ qua: {line2}, Vui lòng check lại.")
-                        continue
+                        print(f"⚠️ line2 dài {len(line2)} ký tự, cắt để giới hạn ngưỡng.")
+                        line2 = line2[:21]
+                        data["line2"] = line2
 
                     if "-" in line2:
                         if self.db_handler.machine_code_exists(machine_code):

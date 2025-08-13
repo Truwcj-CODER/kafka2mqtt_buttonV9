@@ -178,6 +178,13 @@ class mqtt_button:
             curr_up = self.safe_int(data.get("countUp"))
             curr_down = self.safe_int(data.get("countDown"))
             curr_line2 = data.get("line2","")
+            
+            if len(curr_line2) > 21:
+                print(f"⚠️ line2 dài {len(curr_line2)} ký tự, cắt để giới hạn ngưỡng.")
+                curr_line2 = curr_line2[:21]
+                data["line2"] = curr_line2
+                
+
 
             if curr_up is None or curr_down is None:
                 print("⚠️ countUp or countDown empty or invalid, skip")
@@ -193,6 +200,12 @@ class mqtt_button:
             if not kafka_raw:
                 return
             
+
+            kafka_line2 = kafka_raw["data"].get("line2", "")
+            if len(kafka_line2) > 21:
+                kafka_line2 = kafka_line2[:21]
+                kafka_raw["data"]["line2"] = kafka_line2
+             
             kafka_line2 = kafka_raw["data"]["line2"]
             kafka_countUp = self.safe_int(kafka_raw["data"]["count_up"])
             kafka_countDown = self.safe_int(kafka_raw["data"]["count_down"])
