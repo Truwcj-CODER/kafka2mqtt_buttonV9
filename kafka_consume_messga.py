@@ -51,16 +51,18 @@ class mqtt2kafka:
                     if not machine_code:
                         print("⚠️ Thiếu machine_code")
                         continue
-
-                    self.kafka_message[machine_code] = {"data":data, "load_all": False}
                     
                     # Lưu dữ liệu line2 vào DB
                     line2 = data["line2"]
 
                     if len(line2) > 21:
                         print(f"⚠️ line2 dài {len(line2)} ký tự, cắt để giới hạn ngưỡng.")
-                        line2 = line2[:21]
-                        data["line2"] = line2
+                    line2 = line2[:21]
+                    data["line2"] = line2
+
+                    self.kafka_message[machine_code] = {"data":data, "load_all": False}
+                    
+            
 
                     if "-" in line2:
                         if self.db_handler.machine_code_exists(machine_code):

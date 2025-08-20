@@ -199,13 +199,7 @@ class mqtt_button:
             kafka_raw = kafka_message[short_addr]
             if not kafka_raw:
                 return
-            
-
-            kafka_line2 = kafka_raw["data"].get("line2", "")
-            if len(kafka_line2) > 21:
-                kafka_line2 = kafka_line2[:21]
-                kafka_raw["data"]["line2"] = kafka_line2
-             
+                         
             kafka_line2 = kafka_raw["data"]["line2"]
             kafka_countUp = self.safe_int(kafka_raw["data"]["count_up"])
             kafka_countDown = self.safe_int(kafka_raw["data"]["count_down"])
